@@ -1,29 +1,24 @@
-// Fichier : server.js (Prêt pour le déploiement sur Railway avec PostgreSQL)
+// Fichier : server.js (Version corrigée et nettoyée)
 
 // Importation des modules nécessaires
-require('dotenv').config(); // Permet de lire les variables d'environnement depuis un fichier .env (utile pour le dev local)
+require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg'); // Client pour se connecter à PostgreSQL
+const { Pool } = require('pg');
 const path = require('path');
-const cors = require('cors');
+const cors = require('cors'); // Déclaration UNIQUE de cors
 
 // Initialisation de l'application Express
 const app = express();
-const PORT = process.env.PORT || 3000; // Le port est fourni par Railway ou par défaut 3000 en local
-
-// --- Middlewares ---
-const cors = require('cors');
+const PORT = process.env.PORT || 3000;
 
 // --- Configuration explicite de CORS pour la production ---
 const allowedOrigins = [
-    'http://localhost:3000', // Pour le développement local (si vous avez un frontend sur le port 3000)
-    'http://localhost:5173', // Port par défaut pour Vite/React en dev local (au cas où)
-    'https://agenticdiag.vercel.app' // VOTRE URL VERCEL DE PRODUCTION
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://agenticdiag.vercel.app' // URL de votre site Vercel
 ];
-
 const corsOptions = {
     origin: function (origin, callback) {
-        // Autoriser les requêtes sans origine (ex: Postman, apps mobiles) et celles de notre liste
         if (!origin || allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -32,22 +27,20 @@ const corsOptions = {
     }
 };
 
-// --- Middlewares ---
-app.use(cors(corsOptions)); // Utilisez les options de configuration ici
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // Sert les fichiers statiques (votre index.html)
+// --- Middlewares --- (Section unique et dans le bon ordre)
+app.use(cors(corsOptions)); // 1. Appliquer les règles CORS
+app.use(express.json());   // 2. Parser le JSON
+app.use(express.static(path.join(__dirname, 'public'))); // 3. Servir les fichiers statiques
 
 // --- Connexion à la base de données PostgreSQL ---
-// Le client 'pg' va automatiquement utiliser la variable d'environnement DATABASE_URL
-// fournie par Railway.
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Requis pour les connexions SSL sur des services comme Railway ou Heroku
+        rejectUnauthorized: false
     }
 });
 
-// Fonction pour initialiser la table dans la BDD au démarrage du serveur
+// ... (le reste de votre fichier : initializeDatabase, getDiagnosticData, app.post, etc. est correct) ...
 async function initializeDatabase() {
     try {
         const createTableQuery = `
@@ -66,12 +59,9 @@ async function initializeDatabase() {
         console.log("Connecté à PostgreSQL et la table 'submissions' est prête.");
     } catch (err) {
         console.error("Erreur lors de l'initialisation de la base de données:", err);
-        // Si la BDD n'est pas accessible, on arrête le processus pour éviter des erreurs en cascade.
         process.exit(1);
     }
 }
-
-// --- Fonction de diagnostic --- (inchangée)
 function getDiagnosticData(score) {
     if (score < 40) {
         return {
@@ -93,18 +83,12 @@ function getDiagnosticData(score) {
         };
     }
 }
-
-// --- API Endpoint pour recevoir et sauvegarder les soumissions ---
 app.post('/submit-questionnaire', async (req, res) => {
     const { prospect, score, responses } = req.body;
-
-    // Validation des données entrantes
     if (!prospect || !prospect.email || score === undefined || !responses) {
         return res.status(400).json({ success: false, message: "Données manquantes ou invalides." });
     }
-
     try {
-        // 1. Sauvegarder les données dans PostgreSQL
         const insertQuery = `
             INSERT INTO submissions (name, job, organization, email, score, responses) 
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -115,16 +99,11 @@ app.post('/submit-questionnaire', async (req, res) => {
             prospect.organization,
             prospect.email,
             score,
-            JSON.stringify(responses) // Le type JSONB de PostgreSQL est plus efficace pour stocker du JSON
+            JSON.stringify(responses)
         ];
-        
         await pool.query(insertQuery, values);
         console.log(`Nouvelle soumission enregistrée pour ${prospect.email} (Score: ${score})`);
-
-        // 2. Générer le diagnostic pour la réponse immédiate
         const diagnosticData = getDiagnosticData(score);
-
-        // 3. Répondre au client avec un succès et les données du diagnostic
         res.status(200).json({
             success: true,
             message: "Soumission enregistrée avec succès.",
@@ -133,15 +112,11 @@ app.post('/submit-questionnaire', async (req, res) => {
                 ...diagnosticData
             }
         });
-
     } catch (error) {
         console.error("Erreur lors de l'enregistrement de la soumission:", error);
         res.status(500).json({ success: false, message: "Une erreur est survenue sur le serveur." });
     }
 });
-
-// --- Démarrage du serveur ---
-// On initialise la BDD avant de commencer à écouter les requêtes.
 initializeDatabase().then(() => {
     app.listen(PORT, () => {
         console.log(`Serveur démarré et à l'écoute sur le port ${PORT}`);
