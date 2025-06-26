@@ -13,25 +13,26 @@ const PORT = process.env.PORT || 3000;
 
 // --- Configuration explicite de CORS pour la production ---
 const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://agenticdiag.vercel.app' // URL de votre site Vercel
+    'https://agenticdiag.vercel.app',
+    'http://localhost:5173', // Pour les tests futurs
+    'http://localhost:3000'
 ];
 const corsOptions = {
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
+  },
+  methods: ['GET', 'POST', 'OPTIONS'], // Autoriser explicitement OPTIONS
+  allowedHeaders: ['Content-Type', 'Authorization'] // Autoriser les en-têtes communs
 };
 
 // --- Middlewares --- (Section unique et dans le bon ordre)
-app.use(cors(corsOptions)); // 1. Appliquer les règles CORS
-app.use(express.json());   // 2. Parser le JSON
-app.use(express.static(path.join(__dirname, 'public'))); // 3. Servir les fichiers statiques
-
+app.options('*', cors(corsOptions)); // Activer CORS pour TOUTES les requêtes OPTIONS
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 // --- Connexion à la base de données PostgreSQL ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
