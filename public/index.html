@@ -311,7 +311,7 @@
         btn.textContent = 'Envoi en cours...';
         const resultsDiv = document.getElementById('results');
 
-        // ... Toute la partie calcul de score reste identique ...
+        // ... (La partie récupération des données et calcul du score est correcte et reste la même) ...
         const prospectInfo = { name: document.getElementById('userName').value, job: document.getElementById('userFunction').value, organization: document.getElementById('orgName').value, email: document.getElementById('userEmail').value };
         if (!prospectInfo.name || !prospectInfo.job || !prospectInfo.organization || !prospectInfo.email) { alert("Veuillez remplir toutes les informations générales."); btn.disabled = false; btn.textContent = 'Soumettre et recevoir mon diagnostic'; return; }
         const themes = [{ weight: 20, maxPoints: 9, questions: ['q1', 'q2', 'q3'] }, { weight: 25, maxPoints: 9, questions: ['q4', 'q5', 'q6'] }, { weight: 20, maxPoints: 9, questions: ['q7', 'q8', 'q9'] }, { weight: 20, maxPoints: 6, questions: ['q10', 'q11'] }, { weight: 15, maxPoints: 6, questions: ['q12', 'q13'] }];
@@ -323,17 +323,27 @@
         const finalScore = Math.round(totalWeightedScore);
         const dataToSend = { prospect: prospectInfo, score: finalScore, responses: answers };
 
+        // --- DÉBUT DE LA PARTIE CORRIGÉE ---
         try {
-            const response = await fetch('/submit-questionnaire', {
+            // Définition de l'URL de l'API en fonction de l'environnement
+            let apiUrl;
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                apiUrl = 'http://localhost:3000';
+            } else {
+                // Mettez ici l'URL publique de votre backend sur Railway
+                apiUrl = 'wab-backend-production-d076.up.railway.app'; // <--- URL RAILWAY
+            }
+
+            const response = await fetch(`${apiUrl}/submit-questionnaire`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dataToSend)
             });
+            // --- FIN DE LA PARTIE CORRIGÉE ---
+
 
             const result = await response.json();
             
-            // --- CORRECTION ET AMÉLIORATION ICI ---
-            // On vérifie non seulement si la réponse est OK, mais aussi si resultData existe.
             if (response.ok && result.resultData) {
                 const { score, title, text, recommendation } = result.resultData;
 
@@ -348,17 +358,17 @@
                     <p class="result-text"><strong>Diagnostic :</strong> ${text}</p>
                     <p class="result-text"><strong>Recommandation :</strong> ${recommendation}</p>
                     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
-                    <p style="font-size: 0.9em;">Un récapitulatif complet de cette analyse vous a été envoyé à l'adresse <strong>${prospectInfo.email}</strong>.</p>
+                    <p style="font-size: 0.9em;">Vos réponses ont bien été enregistrées. Notre équipe reviendra vers vous prochainement.</p>
                 `;
+                 // J'ai modifié le message final pour qu'il corresponde à la nouvelle logique (pas d'envoi d'email)
 
             } else {
-                // Si la réponse est ok mais les données sont manquantes, ou si la réponse n'est pas ok.
                 throw new Error(result.message || 'La réponse du serveur est invalide.');
             }
 
         } catch (error) {
             resultsDiv.className = 'results-low';
-            resultsDiv.innerHTML = `<div class="result-title">Erreur</div><p class="result-text">Impossible d'afficher le résultat. ${error.message}</p>`;
+            resultsDiv.innerHTML = `<div class="result-title">Erreur</div><p class="result-text">Impossible de soumettre le questionnaire. Veuillez contacter le support. (${error.message})</p>`;
         
         } finally {
             resultsDiv.style.display = 'block';
