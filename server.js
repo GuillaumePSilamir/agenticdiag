@@ -1,4 +1,4 @@
-// Fichier : server.js (Version finale simplifiée et robuste)
+// Fichier : server.js (Version de diagnostic et de production)
 
 require('dotenv').config();
 const express = require('express');
@@ -9,14 +9,17 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Configuration CORS simple et permissive ---
-// On autorise TOUTES les origines. C'est sûr dans ce contexte car seul
-// votre frontend connaît l'URL de votre API. On pourra le restreindre plus tard si besoin.
+// --- Middlewares ---
+// 1. Appliquer une politique CORS permissive. C'est la méthode la plus simple et la plus fiable.
+//    Elle gère automatiquement les requêtes OPTIONS (preflight).
 app.use(cors());
 
-// --- Middlewares ---
+// 2. Parser le corps des requêtes en JSON.
 app.use(express.json());
+
+// 3. Servir les fichiers statiques (utile mais pas critique pour l'API).
 app.use(express.static(path.join(__dirname, 'public')));
+
 
 // --- Connexion à la base de données PostgreSQL ---
 const pool = new Pool({
@@ -50,8 +53,14 @@ function getDiagnosticData(score) {
     return { title: "Cas d'Usage Stratégique", text: "Votre projet est un candidat idéal et à forte valeur ajoutée. L'automatisation simple ne suffirait probablement pas.", recommendation: "Ce projet est probablement prioritaire. Nous vous recommandons vivement de lancer une étude de faisabilité pour concrétiser cette opportunité." };
 }
 
-// --- Route principale de l'API ---
-// Le middleware cors() gère automatiquement la requête OPTIONS et POST pour cette route.
+// === NOUVEAU : Route de test de santé ===
+// Cette route nous permet de vérifier si le serveur est en vie depuis un navigateur.
+app.get('/', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'API is running' });
+});
+
+
+// === Route principale de l'API (inchangée) ===
 app.post('/submit-questionnaire', async (req, res) => {
     const { prospect, score, responses } = req.body;
     if (!prospect || !prospect.email || score === undefined || !responses) {
