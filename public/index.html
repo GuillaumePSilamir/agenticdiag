@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Diagnostic d'Éligibilité pour un Agent Intelligent</title>
+    <style>
+        /* --- Styles Généraux --- */
+        :root {
+            --primary-color: #005A9C; /* Bleu France */
+            --secondary-color: #E3001B; /* Rouge France */
+            --background-color: #f4f6f9;
+            --text-color: #333;
+            --container-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --success-bg: #e6f4ea;
+            --success-border: #b7e1c7;
+            --warning-bg: #fff4e5;
+            --warning-border: #ffdcb0;
+            --error-bg: #fdecea;
+            --error-border: #f8c1b8;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Marianne:wght@400;700&family=Spectral:wght@400&display=swap');
+
+        body {
+            font-family: 'Marianne', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        /* --- Conteneur Principal --- */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--container-bg);
+            padding: 2em 3em;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            font-family: 'Marianne', sans-serif;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 0.5em;
+        }
+
+        header p {
+            text-align: center;
+            margin-bottom: 2em;
+            font-family: 'Spectral', serif;
+            font-size: 1.1em;
+        }
+        
+        /* --- Questionnaire --- */
+        .quiz-form fieldset {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5em;
+            margin-bottom: 2em;
+        }
+
+        .quiz-form legend {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--primary-color);
+            padding: 0 0.5em;
+        }
+        
+        .info-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1em;
+            margin-bottom: 1em;
+        }
+        .info-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .question-group {
+            margin-bottom: 1.5em;
+        }
+
+        .question-group p {
+            font-weight: 700;
+            margin: 0 0 0.8em 0;
+        }
+
+        .option {
+            display: block;
+            margin-bottom: 0.5em;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .option:hover {
+            background-color: #f9f9f9;
+        }
+
+        .option input[type="radio"] {
+            margin-right: 10px;
+            transform: scale(1.1);
+        }
+        
+        /* --- Bouton & Résultats --- */
+        .submit-container {
+            text-align: center;
+            margin-top: 2em;
+        }
+
+        #calculateBtn {
+            background-color: var(--primary-color);
+            color: white;
+            font-family: 'Marianne', sans-serif;
+            font-size: 1.2em;
+            font-weight: 700;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        #calculateBtn:hover {
+            background-color: #004477;
+            transform: translateY(-2px);
+        }
+        #calculateBtn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #results {
+            margin-top: 2em;
+            padding: 1.5em;
+            border-radius: 8px;
+            text-align: center;
+            display: none; /* Caché par défaut */
+        }
+
+        .result-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 0.5em;
+        }
+        .result-text {
+            font-size: 1.1em;
+        }
+        
+        /* Styles de résultats spécifiques */
+        .results-low { background-color: var(--error-bg); border: 1px solid var(--error-border); }
+        .results-medium { background-color: var(--warning-bg); border: 1px solid var(--warning-border); }
+        .results-high { background-color: var(--success-bg); border: 1px solid var(--success-border); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Auto-Diagnostic d'Éligibilité pour un Agent Intelligent</h1>
+            <p>Évaluez en 3 minutes si votre projet est un bon candidat et recevez votre analyse personnalisée par email.</p>
+        </header>
+
+        <form id="quizForm" class="quiz-form">
+            <!-- PARTIE 1 : Informations Générales -->
+            <fieldset>
+                <legend>Informations Générales</legend>
+                <div class="info-group">
+                    <input type="text" id="userName" placeholder="Votre nom et prénom" required>
+                    <input type="text" id="userFunction" placeholder="Votre fonction" required>
+                </div>
+                <div class="info-group">
+                    <input type="text" id="orgName" placeholder="Nom de l'organisation" required>
+                    <input type="email" id="userEmail" placeholder="Votre email professionnel" required>
+                </div>
+            </fieldset>
+
+            <!-- Thématique 1: Nature du Besoin -->
+            <fieldset>
+                <legend>Nature du Besoin (Poids: 20%)</legend>
+                <div class="question-group">
+                    <p>1. Le besoin est-il récurrent ou ponctuel ?</p>
+                    <label class="option"><input type="radio" name="q1" data-points="0"> Ponctuel</label>
+                    <label class="option"><input type="radio" name="q1" data-points="1"> Récurrent à fréquence faible</label>
+                    <label class="option"><input type="radio" name="q1" data-points="2"> Récurrent à fréquence moyenne</label>
+                    <label class="option"><input type="radio" name="q1" data-points="3"> Récurrent et fréquent</label>
+                </div>
+                <div class="question-group">
+                    <p>2. Le besoin implique-t-il la gestion de tâches longues ou chronophages ?</p>
+                    <label class="option"><input type="radio" name="q2" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q2" data-points="1"> Modérément</label>
+                    <label class="option"><input type="radio" name="q2" data-points="3"> Oui, fortement</label>
+                </div>
+                <div class="question-group">
+                    <p>3. Le besoin comporte-t-il des prises de décision basées sur des informations variables ou contextuelles ?</p>
+                    <label class="option"><input type="radio" name="q3" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q3" data-points="1"> Partiellement</label>
+                    <label class="option"><input type="radio" name="q3" data-points="3"> Oui, clairement</label>
+                </div>
+            </fieldset>
+
+            <!-- Thématique 2: Complexité et Autonomie Attendue -->
+            <fieldset>
+                <legend>Complexité et Autonomie (Poids: 25%)</legend>
+                <div class="question-group">
+                    <p>4. Le besoin pourrait-il être adressé par un workflow automatisé simple (ex: Zapier, RPA) ?</p>
+                    <label class="option"><input type="radio" name="q4" data-points="0"> Oui clairement</label>
+                    <label class="option"><input type="radio" name="q4" data-points="1"> Peut-être, mais avec limitations</label>
+                    <label class="option"><input type="radio" name="q4" data-points="3"> Non, nécessite adaptation, interactions, jugement</label>
+                </div>
+                <div class="question-group">
+                    <p>5. Faut-il interagir avec plusieurs systèmes, outils ou sources d’informations ?</p>
+                    <label class="option"><input type="radio" name="q5" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q5" data-points="1"> 1 à 2 sources</label>
+                    <label class="option"><input type="radio" name="q5" data-points="3"> Plusieurs sources (3+)</label>
+                </div>
+                <div class="question-group">
+                    <p>6. Le projet nécessite-t-il une forme d'apprentissage ou d'adaptation dans le temps ?</p>
+                    <label class="option"><input type="radio" name="q6" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q6" data-points="1"> Faiblement</label>
+                    <label class="option"><input type="radio" name="q6" data-points="3"> Oui, clairement</label>
+                </div>
+            </fieldset>
+            
+            <!-- Thématique 3: Utilisateurs Finaux et Interactions -->
+            <fieldset>
+                <legend>Utilisateurs et Interactions (Poids: 20%)</legend>
+                 <div class="question-group">
+                    <p>7. Combien d’utilisateurs seront concernés ?</p>
+                    <label class="option"><input type="radio" name="q7" data-points="0"> 1</label>
+                    <label class="option"><input type="radio" name="q7" data-points="1"> 2 à 10</label>
+                    <label class="option"><input type="radio" name="q7" data-points="2"> Plus de 10</label>
+                    <label class="option"><input type="radio" name="q7" data-points="3"> Plus de 50</label>
+                </div>
+                <div class="question-group">
+                    <p>8. Le besoin suppose-t-il des interactions conversationnelles (chat, email, langage naturel) ?</p>
+                    <label class="option"><input type="radio" name="q8" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q8" data-points="1"> Quelques interactions</label>
+                    <label class="option"><input type="radio" name="q8" data-points="3"> Oui, interactions régulières</label>
+                </div>
+                <div class="question-group">
+                    <p>9. Les utilisateurs attendent-ils des réponses ou actions immédiates ?</p>
+                    <label class="option"><input type="radio" name="q9" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q9" data-points="1"> Parfois</label>
+                    <label class="option"><input type="radio" name="q9" data-points="3"> Oui, systématiquement</label>
+                </div>
+            </fieldset>
+
+            <!-- Thématique 4: Maturité du Besoin et Données Disponibles -->
+            <fieldset>
+                <legend>Maturité et Données (Poids: 20%)</legend>
+                <div class="question-group">
+                    <p>10. Le besoin est-il bien défini ?</p>
+                    <label class="option"><input type="radio" name="q10" data-points="0"> Très flou</label>
+                    <label class="option"><input type="radio" name="q10" data-points="1"> Moyennement clair</label>
+                    <label class="option"><input type="radio" name="q10" data-points="2"> Bien cadré</label>
+                    <label class="option"><input type="radio" name="q10" data-points="3"> Parfaitement cadré avec spécifications</label>
+                </div>
+                 <div class="question-group">
+                    <p>11. Des données sont-elles disponibles pour nourrir un agent (documents, emails, bases, APIs) ?</p>
+                    <label class="option"><input type="radio" name="q11" data-points="0"> Aucune donnée</label>
+                    <label class="option"><input type="radio" name="q11" data-points="1"> Données partielles</label>
+                    <label class="option"><input type="radio" name="q11" data-points="2"> Données accessibles</label>
+                    <label class="option"><input type="radio" name="q11" data-points="3"> Données bien structurées et accessibles</label>
+                </div>
+            </fieldset>
+
+            <!-- Thématique 5: Appétence à l’IA et Vision Stratégique -->
+            <fieldset>
+                <legend>Appétence et Vision (Poids: 15%)</legend>
+                <div class="question-group">
+                    <p>12. Le client est-il favorable à l’introduction d’agents intelligents dans ses processus ?</p>
+                    <label class="option"><input type="radio" name="q12" data-points="0"> Réticent</label>
+                    <label class="option"><input type="radio" name="q12" data-points="1"> Curieux</label>
+                    <label class="option"><input type="radio" name="q12" data-points="2"> Favorable</label>
+                    <label class="option"><input type="radio" name="q12" data-points="3"> Proactif</label>
+                </div>
+                <div class="question-group">
+                    <p>13. Le besoin est-il aligné avec une volonté de transformation digitale ou innovation ?</p>
+                    <label class="option"><input type="radio" name="q13" data-points="0"> Non</label>
+                    <label class="option"><input type="radio" name="q13" data-points="1"> En partie</label>
+                    <label class="option"><input type="radio" name="q13" data-points="3"> Oui, explicitement</label>
+                </div>
+            </fieldset>
+            
+            <div class="submit-container">
+                <button type="button" id="calculateBtn">Soumettre et recevoir mon diagnostic</button>
+            </div>
+        </form>
+
+        <div id="results">
+            <!-- Le message de confirmation sera injecté ici -->
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('calculateBtn').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Envoi en cours...';
+        const resultsDiv = document.getElementById('results');
+
+        // ... Toute la partie calcul de score reste identique ...
+        const prospectInfo = { name: document.getElementById('userName').value, job: document.getElementById('userFunction').value, organization: document.getElementById('orgName').value, email: document.getElementById('userEmail').value };
+        if (!prospectInfo.name || !prospectInfo.job || !prospectInfo.organization || !prospectInfo.email) { alert("Veuillez remplir toutes les informations générales."); btn.disabled = false; btn.textContent = 'Soumettre et recevoir mon diagnostic'; return; }
+        const themes = [{ weight: 20, maxPoints: 9, questions: ['q1', 'q2', 'q3'] }, { weight: 25, maxPoints: 9, questions: ['q4', 'q5', 'q6'] }, { weight: 20, maxPoints: 9, questions: ['q7', 'q8', 'q9'] }, { weight: 20, maxPoints: 6, questions: ['q10', 'q11'] }, { weight: 15, maxPoints: 6, questions: ['q12', 'q13'] }];
+        let totalWeightedScore = 0; let answers = {};
+        function getPoints(qName) { const opt = document.querySelector(`input[name="${qName}"]:checked`); if (opt) { answers[qName] = opt.parentElement.textContent.trim(); return parseInt(opt.dataset.points, 10); } return null; }
+        let scoreIsValid = true;
+        themes.forEach(theme => { let themeRawScore = 0; theme.questions.forEach(qName => { const points = getPoints(qName); if (points === null) scoreIsValid = false; themeRawScore += points; }); if (theme.maxPoints > 0) totalWeightedScore += (themeRawScore / theme.maxPoints) * theme.weight; });
+        if (!scoreIsValid) { alert("Veuillez répondre à toutes les questions du diagnostic."); btn.disabled = false; btn.textContent = 'Soumettre et recevoir mon diagnostic'; return; }
+        const finalScore = Math.round(totalWeightedScore);
+        const dataToSend = { prospect: prospectInfo, score: finalScore, responses: answers };
+
+        try {
+            const response = await fetch('/submit-questionnaire', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSend)
+            });
+
+            const result = await response.json();
+            
+            // --- CORRECTION ET AMÉLIORATION ICI ---
+            // On vérifie non seulement si la réponse est OK, mais aussi si resultData existe.
+            if (response.ok && result.resultData) {
+                const { score, title, text, recommendation } = result.resultData;
+
+                let resultClass = 'results-medium';
+                if (score < 40) resultClass = 'results-low';
+                else if (score > 70) resultClass = 'results-high';
+                resultsDiv.className = resultClass;
+
+                resultsDiv.innerHTML = `
+                    <div style="font-size: 2.5em; font-weight: 700;">${score}%</div>
+                    <div class="result-title">${title}</div>
+                    <p class="result-text"><strong>Diagnostic :</strong> ${text}</p>
+                    <p class="result-text"><strong>Recommandation :</strong> ${recommendation}</p>
+                    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+                    <p style="font-size: 0.9em;">Un récapitulatif complet de cette analyse vous a été envoyé à l'adresse <strong>${prospectInfo.email}</strong>.</p>
+                `;
+
+            } else {
+                // Si la réponse est ok mais les données sont manquantes, ou si la réponse n'est pas ok.
+                throw new Error(result.message || 'La réponse du serveur est invalide.');
+            }
+
+        } catch (error) {
+            resultsDiv.className = 'results-low';
+            resultsDiv.innerHTML = `<div class="result-title">Erreur</div><p class="result-text">Impossible d'afficher le résultat. ${error.message}</p>`;
+        
+        } finally {
+            resultsDiv.style.display = 'block';
+            resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+</script>
+</body>
+</html>
