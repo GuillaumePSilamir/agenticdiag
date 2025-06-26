@@ -1,45 +1,21 @@
-// Fichier : server.js (Version corrigée et finalisée)
+// Fichier : server.js (Version finale simplifiée et robuste)
 
-// Importation des modules nécessaires
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
 const cors = require('cors');
 
-// Initialisation de l'application Express
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Configuration explicite de CORS pour la production ---
-const allowedOrigins = [
-    'https://agenticdiag.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-];
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
+// --- Configuration CORS simple et permissive ---
+// On autorise TOUTES les origines. C'est sûr dans ce contexte car seul
+// votre frontend connaît l'URL de votre API. On pourra le restreindre plus tard si besoin.
+app.use(cors());
 
-// --- Middlewares (DANS LE BON ORDRE ET COMPLETS) ---
-// 1. Gérer la requête de vérification (preflight) AVANT toute autre chose.
-app.options('*', cors(corsOptions));
-
-// 2. Appliquer les règles CORS à TOUTES les autres requêtes (GET, POST, etc.).
-app.use(cors(corsOptions)); // <--- CETTE LIGNE EST ESSENTIELLE
-
-// 3. Parser le corps des requêtes JSON.
+// --- Middlewares ---
 app.use(express.json());
-
-// 4. Servir les fichiers statiques (si vous voulez accéder à index.html depuis le backend).
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- Connexion à la base de données PostgreSQL ---
@@ -50,7 +26,7 @@ const pool = new Pool({
     }
 });
 
-// --- Fonctions et Routes (inchangées) ---
+// --- Initialisation de la BDD au démarrage ---
 async function initializeDatabase() {
     try {
         const createTableQuery = `
@@ -67,12 +43,15 @@ async function initializeDatabase() {
     }
 }
 
+// --- Fonction de diagnostic (inchangée) ---
 function getDiagnosticData(score) {
     if (score < 40) return { title: "Opportunité à Préciser", text: "Votre besoin, en l'état, ne semble pas présenter les caractéristiques prioritaires pour un agent intelligent. Il pourrait être trop simple ou manquer de données.", recommendation: "Il est probable que des solutions d'automatisation standard (RPA, workflows simples) soient plus adaptées et rentables." };
     if (score <= 70) return { title: "Potentiel Confirmé", text: "Votre cas d'usage est un candidat sérieux ! Il possède plusieurs dimensions clés (complexité, récurrence, interactions) justifiant l'intervention d'un agent.", recommendation: "C'est le moment idéal pour approfondir l'analyse. Planifions un échange pour valider les aspects techniques et quantifier les gains." };
     return { title: "Cas d'Usage Stratégique", text: "Votre projet est un candidat idéal et à forte valeur ajoutée. L'automatisation simple ne suffirait probablement pas.", recommendation: "Ce projet est probablement prioritaire. Nous vous recommandons vivement de lancer une étude de faisabilité pour concrétiser cette opportunité." };
 }
 
+// --- Route principale de l'API ---
+// Le middleware cors() gère automatiquement la requête OPTIONS et POST pour cette route.
 app.post('/submit-questionnaire', async (req, res) => {
     const { prospect, score, responses } = req.body;
     if (!prospect || !prospect.email || score === undefined || !responses) {
@@ -91,6 +70,7 @@ app.post('/submit-questionnaire', async (req, res) => {
     }
 });
 
+// --- Démarrage du serveur ---
 initializeDatabase().then(() => {
     app.listen(PORT, () => {
         console.log(`Serveur démarré et à l'écoute sur le port ${PORT}`);
