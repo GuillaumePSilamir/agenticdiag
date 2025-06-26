@@ -12,8 +12,29 @@ const app = express();
 const PORT = process.env.PORT || 3000; // Le port est fourni par Railway ou par défaut 3000 en local
 
 // --- Middlewares ---
-app.use(cors()); // Active CORS pour autoriser les requêtes depuis Vercel
-app.use(express.json()); // Pour parser le corps des requêtes en JSON
+const cors = require('cors');
+
+// --- Configuration explicite de CORS pour la production ---
+const allowedOrigins = [
+    'http://localhost:3000', // Pour le développement local (si vous avez un frontend sur le port 3000)
+    'http://localhost:5173', // Port par défaut pour Vite/React en dev local (au cas où)
+    'https://agenticdiag.vercel.app' // VOTRE URL VERCEL DE PRODUCTION
+];
+
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Autoriser les requêtes sans origine (ex: Postman, apps mobiles) et celles de notre liste
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    }
+};
+
+// --- Middlewares ---
+app.use(cors(corsOptions)); // Utilisez les options de configuration ici
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); // Sert les fichiers statiques (votre index.html)
 
 // --- Connexion à la base de données PostgreSQL ---
