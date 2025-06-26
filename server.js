@@ -1,4 +1,4 @@
-// Fichier : server.js (Version de diagnostic et de production)
+// Fichier : server.js (Version finale, corrigée et optimisée)
 
 require('dotenv').config();
 const express = require('express');
@@ -10,14 +10,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Middlewares ---
-// 1. Appliquer une politique CORS permissive. C'est la méthode la plus simple et la plus fiable.
-//    Elle gère automatiquement les requêtes OPTIONS (preflight).
+// On applique une politique CORS simple et globale. C'est la méthode la plus robuste.
 app.use(cors());
-
-// 2. Parser le corps des requêtes en JSON.
+// On s'assure que le serveur peut lire le JSON des requêtes.
 app.use(express.json());
-
-// 3. Servir les fichiers statiques (utile mais pas critique pour l'API).
+// On sert les fichiers statiques.
 app.use(express.static(path.join(__dirname, 'public')));
 
 
@@ -29,7 +26,9 @@ const pool = new Pool({
     }
 });
 
+
 // --- Initialisation de la BDD au démarrage ---
+// Cette fonction crée la table AVEC les nouvelles colonnes si elle n'existe pas.
 async function initializeDatabase() {
     try {
         const createTableQuery = `
@@ -41,12 +40,9 @@ async function initializeDatabase() {
                 email TEXT NOT NULL,
                 score INTEGER NOT NULL,
                 responses JSONB,
-                
-                -- NOUVELLES COLONNES AJOUTÉES ICI --
                 diag_title TEXT,
                 diag_text TEXT,
                 diag_recommendation TEXT,
-                
                 submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
         `;
@@ -60,54 +56,73 @@ async function initializeDatabase() {
 
 // --- Fonction de diagnostic (inchangée) ---
 function getDiagnosticData(score) {
-    if (score < 40) return { title: "Opportunité à Préciser", text: "Votre besoin, en l'état, ne semble pas présenter les caractéristiques prioritaires pour un agent intelligent. Il pourrait être trop simple ou manquer de données.", recommendation: "Il est probable que des solutions d'automatisation standard (RPA, workflows simples) soient plus adaptées et rentables." };
-    if (score <= 70) return { title: "Potentiel Confirmé", text: "Votre cas d'usage est un candidat sérieux ! Il possède plusieurs dimensions clés (complexité, récurrence, interactions) justifiant l'intervention d'un agent.", recommendation: "C'est le moment idéal pour approfondir l'analyse. Planifions un échange pour valider les aspects techniques et quantifier les gains." };
-    return { title: "Cas d'Usage Stratégique", text: "Votre projet est un candidat idéal et à forte valeur ajoutée. L'automatisation simple ne suffirait probablement pas.", recommendation: "Ce projet est probablement prioritaire. Nous vous recommandons vivement de lancer une étude de faisabilité pour concrétiser cette opportunité." };
+    if (score < 40) {
+        return {
+            title: "Opportunité à Préciser",
+            text: "Votre besoin, en l'état, ne semble pas présenter les caractéristiques prioritaires pour un agent intelligent. Il pourrait être trop simple ou manquer de données.",
+            recommendation: "Il est probable que des solutions d'automatisation standard (RPA, workflows simples) soient plus adaptées et rentables."
+        };
+    } else if (score >= 40 && score <= 70) {
+        return {
+            title: "Potentiel Confirmé",
+            text: "Votre cas d'usage est un candidat sérieux ! Il possède plusieurs dimensions clés (complexité, récurrence, interactions) justifiant l'intervention d'un agent.",
+            recommendation: "C'est le moment idéal pour approfondir l'analyse. Planifions un échange pour valider les aspects techniques et quantifier les gains."
+        };
+    } else {
+        return {
+            title: "Cas d'Usage Stratégique",
+            text: "Votre projet est un candidat idéal et à forte valeur ajoutée. L'automatisation simple ne suffirait probablement pas.",
+            recommendation: "Ce projet est probablement prioritaire. Nous vous recommandons vivement de lancer une étude de faisabilité pour concrétiser cette opportunité."
+        };
+    }
 }
 
-// === NOUVEAU : Route de test de santé ===
-// Cette route nous permet de vérifier si le serveur est en vie depuis un navigateur.
+// --- Route principale de l'API ---
+
+// Route de test de santé pour le diagnostic
 app.get('/', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'API is running' });
 });
 
-
-// === Route principale de l'API (inchangée) ===
+// Route pour soumettre le questionnaire (CORRIGÉE)
 app.post('/submit-questionnaire', async (req, res) => {
     const { prospect, score, responses } = req.body;
     if (!prospect || !prospect.email || score === undefined || !responses) {
         return res.status(400).json({ success: false, message: "Données manquantes ou invalides." });
     }
+    
     try {
-        // On récupère les textes du diagnostic
+        // 1. Obtenir les textes du diagnostic
         const diagnosticData = getDiagnosticData(score);
 
-        // On modifie la requête d'insertion pour inclure les nouvelles colonnes
+        // 2. Définir la requête d'insertion avec 9 colonnes
         const insertQuery = `
-            INSERT INTO submissions (
-                name, job, organization, email, score, responses,
-                diag_title, diag_text, diag_recommendation 
+            INSERT INTO submissions(
+                name, job, organization, email, score, responses, 
+                diag_title, diag_text, diag_recommendation
             ) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
-
-        // On ajoute les nouvelles valeurs au tableau "values"
+        
+        // 3. Préparer les 9 valeurs correspondantes dans le bon ordre
         const values = [
-            prospect.name,
-            prospect.job,
-            prospect.organization,
-            prospect.email,
-            score,
-            JSON.stringify(responses),
-            diagnosticData.title,          // Nouvelle valeur
-            diagnosticData.text,           // Nouvelle valeur
-            diagnosticData.recommendation  // Nouvelle valeur
+            prospect.name,              // $1
+            prospect.job,               // $2
+            prospect.organization,      // $3
+            prospect.email,             // $4
+            score,                      // $5
+            JSON.stringify(responses),  // $6
+            diagnosticData.title,       // $7
+            diagnosticData.text,        // $8
+            diagnosticData.recommendation // $9
         ];
         
+        // 4. Exécuter la requête
         await pool.query(insertQuery, values);
+        
         console.log(`Nouvelle soumission enregistrée pour ${prospect.email} (Score: ${score})`);
-
-        // La réponse au frontend ne change pas
+        
+        // 5. Renvoyer une réponse de succès
         res.status(200).json({
             success: true,
             message: "Soumission enregistrée avec succès.",
@@ -116,11 +131,13 @@ app.post('/submit-questionnaire', async (req, res) => {
                 ...diagnosticData
             }
         });
+
     } catch (error) {
-        console.error("Erreur lors de l'enregistrement de la soumission:", error);
-        res.status(500).json({ success: false, message: "Une erreur est survenue sur le serveur." });
+        console.error("Erreur lors de l'enregistrement SQL:", error);
+        res.status(500).json({ success: false, message: "Erreur interne du serveur lors de l'enregistrement." });
     }
 });
+
 
 // --- Démarrage du serveur ---
 initializeDatabase().then(() => {
