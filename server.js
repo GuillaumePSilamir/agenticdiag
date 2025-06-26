@@ -34,10 +34,22 @@ async function initializeDatabase() {
     try {
         const createTableQuery = `
             CREATE TABLE IF NOT EXISTS submissions (
-                id SERIAL PRIMARY KEY, name TEXT NOT NULL, job TEXT, organization TEXT,
-                email TEXT NOT NULL, score INTEGER NOT NULL, responses JSONB,
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                job TEXT,
+                organization TEXT,
+                email TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                responses JSONB,
+                
+                -- NOUVELLES COLONNES AJOUTÉES ICI --
+                diag_title TEXT,
+                diag_text TEXT,
+                diag_recommendation TEXT,
+                
                 submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-            );`;
+            );
+        `;
         await pool.query(createTableQuery);
         console.log("Connecté à PostgreSQL et la table 'submissions' est prête.");
     } catch (err) {
@@ -67,12 +79,43 @@ app.post('/submit-questionnaire', async (req, res) => {
         return res.status(400).json({ success: false, message: "Données manquantes ou invalides." });
     }
     try {
-        const insertQuery = `INSERT INTO submissions (name, job, organization, email, score, responses) VALUES ($1, $2, $3, $4, $5, $6)`;
-        const values = [prospect.name, prospect.job, prospect.organization, prospect.email, score, JSON.stringify(responses)];
+        // On récupère les textes du diagnostic
+        const diagnosticData = getDiagnosticData(score);
+
+        // On modifie la requête d'insertion pour inclure les nouvelles colonnes
+        const insertQuery = `
+            INSERT INTO submissions (
+                name, job, organization, email, score, responses,
+                diag_title, diag_text, diag_recommendation 
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+
+        // On ajoute les nouvelles valeurs au tableau "values"
+        const values = [
+            prospect.name,
+            prospect.job,
+            prospect.organization,
+            prospect.email,
+            score,
+            JSON.stringify(responses),
+            diagnosticData.title,          // Nouvelle valeur
+            diagnosticData.text,           // Nouvelle valeur
+            diagnosticData.recommendation  // Nouvelle valeur
+        ];
+        
         await pool.query(insertQuery, values);
         console.log(`Nouvelle soumission enregistrée pour ${prospect.email} (Score: ${score})`);
-        const diagnosticData = getDiagnosticData(score);
-        res.status(200).json({ success: true, message: "Soumission enregistrée avec succès.", resultData: { score: score, ...diagnosticData } });
+
+        // La réponse au frontend ne change pas
+        res.status(200).json({
+            success: true,
+            message: "Soumission enregistrée avec succès.",
+            resultData: {
+                score: score,
+                ...diagnosticData
+            }
+        });
     } catch (error) {
         console.error("Erreur lors de l'enregistrement de la soumission:", error);
         res.status(500).json({ success: false, message: "Une erreur est survenue sur le serveur." });
